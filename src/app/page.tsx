@@ -9,9 +9,9 @@ export default function Home() {
           Home Charging Assessment
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-700">
-          Aplikacija je u pocetnoj fazi razvoja. Ovaj starter template postavlja
-          osnovu za buducu procenu instalacije kucnih punjaca za elektricna
-          vozila.
+          This application is in its initial development phase. The starter
+          template provides a clean foundation for a future electric vehicle
+          home charging installation assessment app.
         </p>
       </section>
     </main>

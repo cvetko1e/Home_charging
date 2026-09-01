@@ -1,8 +1,8 @@
 # Home Charging Assessment
 
+Minimal starter template for a future application that will assess electric vehicle home charging installation needs.
 
-
-## Tehnologije
+## Technologies
 
 - Next.js
 - TypeScript
@@ -11,28 +11,28 @@
 - Tailwind CSS
 - ESLint
 
-## Preduslovi
+## Prerequisites
 
-- Node.js 20.9 ili noviji
+- Node.js 20.9 or newer
 - npm
-- MongoDB instanca za kasniji razvoj
+- MongoDB instance for future development
 
-## Instalacija
+## Installation
 
 ```bash
 npm install
 ```
 
-## Environment podesavanje
+## Environment Setup
 
-Kopiraj `.env.example` u `.env.local` i prilagodi vrednosti lokalnom okruzenju:
+Copy `.env.example` to `.env.local` and update the values for your local environment:
 
 ```env
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB_NAME=home_charging_assessment
 ```
 
-Pravi `.env` i `.env.local` fajlovi su ignorisani kroz `.gitignore`.
+Real `.env` and `.env.local` files are ignored by `.gitignore`.
 
 ## Development
 
@@ -40,16 +40,16 @@ Pravi `.env` i `.env.local` fajlovi su ignorisani kroz `.gitignore`.
 npm run dev
 ```
 
-Development server se podrazumevano pokrece na `http://localhost:3000`.
+The development server runs on `http://localhost:3000` by default.
 
-## Provere
+## Checks
 
 ```bash
 npm run lint
 npm run build
 ```
 
-## Struktura projekta
+## Project Structure
 
 ```text
 public/
@@ -60,8 +60,8 @@ src/
   types/
 ```
 
-`src/lib/mongodb.ts` sadrzi osnovni helper za buduce povezivanje na MongoDB preko environment promenljivih.
+`src/lib/mongodb.ts` contains a basic helper for future MongoDB connections through environment variables.
 
-## Status funkcionalnosti
+## Feature Status
 
-Poslovne funkcionalnosti jos nisu implementirane. Ovaj template ne sadrzi upitnik, admin portal, autentifikaciju, API rute za procene, MongoDB modele, seed podatke, email slanje ili porucivanje punjaca.
+Business features are not implemented yet. This template does not include a questionnaire, admin portal, authentication, assessment API routes, MongoDB models, seed data, email sending, or charger ordering.
