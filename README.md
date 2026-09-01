@@ -1,6 +1,6 @@
 # Home Charging Assessment
 
-Minimalni starter template za buducu aplikaciju za procenu instalacije kucnih punjaca za elektricna vozila.
+
 
 ## Tehnologije
 
