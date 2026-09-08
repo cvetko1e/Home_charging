@@ -22,7 +22,6 @@ import type {
   AssessmentResponse,
   AssessmentSections,
   ChargerInstallation,
-  CreateAssessmentResponse,
   ElectricalPanel,
   EvCharger,
   HomeInformation,
@@ -42,7 +41,7 @@ import {
 
 type DraftCredentials = {
   assessmentId: string;
-  resumeToken: string;
+  resumeToken?: string;
 };
 
 type FlowState = "loading" | "ready" | "success" | "error";
@@ -90,8 +89,14 @@ function readStoredDraft(): DraftCredentials | null {
   try {
     const parsed = JSON.parse(rawValue) as DraftCredentials;
 
-    if (parsed.assessmentId && parsed.resumeToken) {
-      return parsed;
+    if (parsed.assessmentId) {
+      return {
+        assessmentId: parsed.assessmentId,
+        resumeToken:
+          typeof parsed.resumeToken === "string"
+            ? parsed.resumeToken
+            : undefined,
+      };
     }
   } catch {
     window.localStorage.removeItem(storageKey);
@@ -101,11 +106,18 @@ function readStoredDraft(): DraftCredentials | null {
 }
 
 function persistDraft(credentials: DraftCredentials) {
-  window.localStorage.setItem(storageKey, JSON.stringify(credentials));
+  window.localStorage.setItem(
+    storageKey,
+    JSON.stringify({ assessmentId: credentials.assessmentId }),
+  );
+  replaceDraftUrl(credentials.assessmentId);
+}
+
+function replaceDraftUrl(assessmentId: string) {
   window.history.replaceState(
     null,
     "",
-    `/assessment?assessmentId=${credentials.assessmentId}&resumeToken=${credentials.resumeToken}`,
+    `/assessment?assessmentId=${assessmentId}`,
   );
 }
 
@@ -150,10 +162,9 @@ export function AssessmentFlow() {
       const response = await fetch("/api/assessments", {
         method: "POST",
       });
-      const payload = await readApiResponse<CreateAssessmentResponse>(response);
+      const payload = await readApiResponse<AssessmentResponse>(response);
       const nextCredentials = {
         assessmentId: payload.assessment.id,
-        resumeToken: payload.resumeToken,
       };
 
       setCredentials(nextCredentials);
@@ -175,24 +186,39 @@ export function AssessmentFlow() {
     setFlowState("loading");
     setErrorMessage(null);
 
-    const existingDraft = readDraftFromUrl() ?? readStoredDraft();
+    const urlDraft = readDraftFromUrl();
+    const existingDraft = urlDraft ?? readStoredDraft();
 
     if (existingDraft) {
-      try {
-        const response = await fetch(
-          `/api/assessments/${existingDraft.assessmentId}`,
-          {
-            headers: {
-              "x-resume-token": existingDraft.resumeToken,
-            },
-          },
-        );
-        const payload = await readApiResponse<AssessmentResponse>(response);
+      if (urlDraft?.resumeToken) {
+        replaceDraftUrl(urlDraft.assessmentId);
+      }
 
-        setCredentials(existingDraft);
+      try {
+        const response = existingDraft.resumeToken
+          ? await fetch(`/api/assessments/${existingDraft.assessmentId}/resume`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                resumeToken: existingDraft.resumeToken,
+              }),
+            })
+          : await fetch(`/api/assessments/${existingDraft.assessmentId}`);
+        const payload = await readApiResponse<AssessmentResponse>(response);
+        const nextCredentials = {
+          assessmentId: existingDraft.assessmentId,
+        };
+
+        setCredentials(nextCredentials);
         setAssessment(payload.assessment);
         setActiveStep(payload.assessment.currentStep);
-        persistDraft(existingDraft);
+        if (payload.assessment.status === "completed") {
+          removeStoredDraft();
+        } else {
+          persistDraft(nextCredentials);
+        }
         setFlowState(
           payload.assessment.status === "completed" ? "success" : "ready",
         );
@@ -223,7 +249,7 @@ export function AssessmentFlow() {
 
   async function saveStep(step: SurveyStepNumber, data: unknown) {
     if (!credentials) {
-      setErrorMessage("Assessment credentials are missing.");
+      setErrorMessage("Assessment resume session is missing.");
       return;
     }
 
@@ -240,7 +266,6 @@ export function AssessmentFlow() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            resumeToken: credentials.resumeToken,
             data,
           }),
         },
@@ -261,7 +286,7 @@ export function AssessmentFlow() {
 
   async function submitAssessment() {
     if (!credentials) {
-      setErrorMessage("Assessment credentials are missing.");
+      setErrorMessage("Assessment resume session is missing.");
       return;
     }
 
@@ -277,9 +302,7 @@ export function AssessmentFlow() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            resumeToken: credentials.resumeToken,
-          }),
+          body: JSON.stringify({}),
         },
       );
       const payload = await readApiResponse<AssessmentResponse>(response);

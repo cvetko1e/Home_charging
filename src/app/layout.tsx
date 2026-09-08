@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Home Charging Assessment",
   description:
-    "Initial Next.js template for a future EV home charging assessment app.",
+    "Customer assessment and admin portal for EV home charging installation requests.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>

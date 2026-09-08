@@ -1,49 +1,42 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
+import { getCurrentAdminSession } from "@/services/adminSession";
+
+export const dynamic = "force-dynamic";
+
 export default function AdminLoginPage() {
+  return <AdminLoginPageContent />;
+}
+
+async function AdminLoginPageContent() {
+  const session = await getCurrentAdminSession();
+
+  if (session) {
+    redirect("/admin/dashboard");
+  }
+
   return (
-    <section className="mx-auto max-w-md rounded-lg border border-white/10 bg-white p-6 text-neutral-950 shadow-sm">
-      <p className="text-sm font-semibold uppercase text-emerald-700">
-        Admin access
-      </p>
-      <h2 className="mt-3 text-3xl font-semibold">Admin Login</h2>
-      <p className="mt-3 text-sm leading-6 text-neutral-700">
-        Authentication is not implemented yet. This page is only the visual
-        starting point for the future admin portal.
-      </p>
-      <form className="mt-6 grid gap-4" aria-describedby="admin-login-status">
-        <label className="block">
-          <span className="text-sm font-semibold text-neutral-900">Email</span>
-          <input
-            type="email"
-            disabled
-            className="mt-2 w-full rounded-md border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-500"
-            placeholder="admin@example.com"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm font-semibold text-neutral-900">
-            Password
-          </span>
-          <input
-            type="password"
-            disabled
-            className="mt-2 w-full rounded-md border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-500"
-            placeholder="Not available yet"
-          />
-        </label>
-        <p
-          id="admin-login-status"
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <Link
+          href="/"
+          className="text-sm font-semibold text-emerald-300 hover:text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-300"
         >
-          Login will be connected during the next implementation phase.
+          Home
+        </Link>
+      </div>
+      <section className="mx-auto w-full max-w-md rounded-lg border border-white/10 bg-white p-6 text-neutral-950 shadow-sm">
+        <p className="text-sm font-semibold uppercase text-emerald-700">
+          Admin access
         </p>
-        <button
-          type="button"
-          disabled
-          className="rounded-md bg-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-600"
-        >
-          Login Not Available
-        </button>
-      </form>
-    </section>
+        <h2 className="mt-3 text-3xl font-semibold">Admin Login</h2>
+        <p className="mt-3 text-sm leading-6 text-neutral-700">
+          Sign in with a seeded development administrator or a database-backed
+          admin account.
+        </p>
+        <AdminLoginForm />
+      </section>
+    </div>
   );
 }

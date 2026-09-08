@@ -7,10 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "tsx scripts/seed.ts",
+    "db:indexes": "tsx scripts/ensure-indexes.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "bcryptjs": "^3.0.3",
     "mongodb": "^7.6.0",
     "next": "^16.3.4",
     "react": "^19.2.8",
@@ -19,6 +23,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",
@@ -26,6 +31,8 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

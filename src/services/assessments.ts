@@ -1,5 +1,5 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { ObjectId } from "mongodb";
+import { createOpaqueToken, hashSecret, isSecretHashMatch } from "@/lib/security";
 import {
   completeAssessmentDraft,
   findAssessmentById,
@@ -19,25 +19,16 @@ import {
   type SurveyStepNumber,
 } from "@/types/assessment";
 
-const tokenByteLength = 32;
-
-function createResumeToken() {
-  return randomBytes(tokenByteLength).toString("base64url");
+export function createResumeToken() {
+  return createOpaqueToken();
 }
 
-function hashResumeToken(resumeToken: string) {
-  return createHash("sha256").update(resumeToken).digest("hex");
+export function hashResumeToken(resumeToken: string) {
+  return hashSecret(resumeToken);
 }
 
-function isResumeTokenMatch(resumeToken: string, storedHash: string) {
-  const incomingHash = hashResumeToken(resumeToken);
-  const incomingBuffer = Buffer.from(incomingHash, "hex");
-  const storedBuffer = Buffer.from(storedHash, "hex");
-
-  return (
-    incomingBuffer.length === storedBuffer.length &&
-    timingSafeEqual(incomingBuffer, storedBuffer)
-  );
+export function isResumeTokenMatch(resumeToken: string, storedHash: string) {
+  return isSecretHashMatch(resumeToken, storedHash);
 }
 
 function assertValidObjectId(assessmentId: string) {

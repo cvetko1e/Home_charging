@@ -9,14 +9,15 @@ import {
 } from "@/lib/catalogs";
 import { surveyStepNumbers, type SurveyStepNumber } from "@/types/assessment";
 
-const phonePattern = /^\+?[\d\s().-]{7,20}$/;
+export const phonePattern = /^\+?[\d\s().-]{7,20}$/;
 const objectIdPattern = /^[a-f\d]{24}$/i;
 
 const requiredText = (fieldName: string) =>
   z.string().trim().min(1, `${fieldName} is required.`);
 
 const optionalText = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
   z.string().trim().optional(),
 );
 
@@ -48,8 +49,12 @@ const integerInput = (fieldName: string) =>
 
 const manufacturerNames = vehicleCatalog.map((entry) => entry.manufacturer);
 const chargerBrands = chargerCatalog.map((entry) => entry.brand);
+export const resumeTokenSchema = z
+  .string()
+  .min(32, "A valid resume token is required.");
+
 export const authorizationSchema = z.object({
-  resumeToken: z.string().min(32, "A valid resume token is required."),
+  resumeToken: resumeTokenSchema,
 });
 
 export const assessmentIdSchema = z
@@ -194,11 +199,14 @@ export const assessmentRouteParamsSchema = z.object({
   assessmentId: assessmentIdSchema,
 });
 
-export const saveStepRequestSchema = authorizationSchema.extend({
+export const saveStepRequestSchema = z.object({
+  resumeToken: resumeTokenSchema.optional(),
   data: z.unknown(),
 });
 
-export const completeAssessmentRequestSchema = authorizationSchema;
+export const completeAssessmentRequestSchema = z.object({
+  resumeToken: resumeTokenSchema.optional(),
+});
 
 export function getSurveyStepSchema(step: SurveyStepNumber) {
   switch (step) {

@@ -5,7 +5,7 @@ export default function Home() {
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
       <section className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-6 py-16 sm:px-8">
         <p className="text-sm font-semibold uppercase text-emerald-700">
-          Initial development
+          EV charging intake
         </p>
         <h1 className="mt-4 max-w-4xl text-4xl font-semibold sm:text-6xl">
           Home Charging Assessment

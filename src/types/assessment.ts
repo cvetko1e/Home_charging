@@ -77,11 +77,6 @@ export type Assessment = {
   completedAt?: string;
 };
 
-export type CreateAssessmentResponse = {
-  assessment: Assessment;
-  resumeToken: string;
-};
-
 export type AssessmentResponse = {
   assessment: Assessment;
 };
