@@ -15,19 +15,35 @@ function createMongoClientPromise() {
     throw new Error("Missing MONGODB_URI environment variable.");
   }
 
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    serverSelectionTimeoutMS: 10000,
+  });
 
   return client.connect();
 }
 
+function createCachedMongoClientPromise() {
+  const clientPromise = createMongoClientPromise().catch((error) => {
+    if (process.env.NODE_ENV === "development") {
+      globalForMongo._mongoClientPromise = undefined;
+    } else {
+      productionClientPromise = undefined;
+    }
+
+    throw error;
+  });
+
+  return clientPromise;
+}
+
 export function getMongoClient() {
   if (process.env.NODE_ENV === "development") {
-    globalForMongo._mongoClientPromise ??= createMongoClientPromise();
+    globalForMongo._mongoClientPromise ??= createCachedMongoClientPromise();
 
     return globalForMongo._mongoClientPromise;
   }
 
-  productionClientPromise ??= createMongoClientPromise();
+  productionClientPromise ??= createCachedMongoClientPromise();
 
   return productionClientPromise;
 }

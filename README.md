@@ -1,6 +1,6 @@
 # Home Charging Assessment
 
-Minimal starter template for a future application that will assess electric vehicle home charging installation needs.
+Home Charging Assessment is a Next.js application for collecting electric vehicle home charger installation requests. Customers can start an assessment without registration, save each page as a draft, return with a secure resume token, review their answers, and submit the completed request.
 
 ## Technologies
 
@@ -10,6 +10,8 @@ Minimal starter template for a future application that will assess electric vehi
 - MongoDB Node.js Driver
 - Tailwind CSS
 - ESLint
+- Zod
+- React Hook Form
 
 ## Prerequisites
 
@@ -46,6 +48,7 @@ The development server runs on `http://localhost:3000` by default.
 
 ```bash
 npm run lint
+npm run typecheck
 npm run build
 ```
 
@@ -55,13 +58,38 @@ npm run build
 public/
 src/
   app/
+    admin/
+    api/
+    assessment/
   components/
   lib/
+  repositories/
+  services/
   types/
+  validation/
 ```
 
-`src/lib/mongodb.ts` contains a basic helper for future MongoDB connections through environment variables.
+`src/lib/mongodb.ts` contains the MongoDB connection helper. The assessment backend uses the official MongoDB Node.js driver directly, without an ORM.
 
 ## Feature Status
 
-Business features are not implemented yet. This template does not include a questionnaire, admin portal, authentication, assessment API routes, MongoDB models, seed data, email sending, or charger ordering.
+Implemented first-day scope:
+
+- Responsive homepage with customer and admin entry actions
+- Multi-step customer assessment flow
+- Client and server validation with Zod
+- Page-by-page draft saving
+- Secure resume token hashing on the server
+- Refresh and resume support
+- Final review and completed submission state
+- Small isolated vehicle and charger catalog constants
+- Initial admin login and dashboard routes as visual placeholders
+
+Not implemented yet:
+
+- Real admin authentication
+- Assessment browsing in the admin dashboard
+- Filtering, statistics, or admin editing
+- Reminder emails
+- Charger checkout or payment
+- Random assessment seed data
