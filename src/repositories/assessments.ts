@@ -8,6 +8,7 @@ import type {
 
 export type AssessmentDocument = {
   _id: ObjectId;
+  seedId?: string;
   status: AssessmentStatus;
   currentStep: AssessmentStepNumber;
   lastCompletedStep: number;
@@ -87,6 +88,7 @@ export async function createAssessmentIndexes() {
   const collection = await getAssessmentsCollection();
 
   await collection.createIndexes([
+    { key: { seedId: 1 }, unique: true, sparse: true },
     { key: { status: 1 } },
     { key: { createdAt: -1 } },
     { key: { lastActivityAt: -1 } },
@@ -396,20 +398,24 @@ function buildAssessmentAdminSort(
         "sections.personalDetails.lastName": value,
         "sections.personalDetails.firstName": value,
         createdAt: -1,
+        _id: -1,
       };
     case "vehicle":
       return {
         "sections.vehicleDetails.manufacturer": value,
         "sections.vehicleDetails.model": value,
         createdAt: -1,
+        _id: -1,
       };
+    case "createdAt":
+      return { createdAt: value, _id: -1 };
     case "status":
     case "lastCompletedStep":
-    case "createdAt":
     case "lastActivityAt":
       return {
         [sort]: value,
         createdAt: -1,
+        _id: -1,
       };
   }
 }

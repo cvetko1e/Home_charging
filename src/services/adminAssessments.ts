@@ -1,4 +1,3 @@
-import { ObjectId } from "mongodb";
 import {
   findAssessmentForAdmin,
   getAssessmentRepositoryStats,
@@ -19,6 +18,7 @@ import { assessmentListQuerySchema } from "@/validation/admin";
 import type { AssessmentListQuery } from "@/validation/admin";
 import { getDraftInactivityDays } from "@/lib/env";
 import { personalDetailsSchema } from "@/validation/assessment";
+import { assertValidObjectId } from "@/validation/object-id";
 
 const adminContactFields = [
   "firstName",
@@ -286,11 +286,5 @@ function assertCompletePersonalDetails(document: AssessmentDocument) {
 
   if (!personalDetailsCheck.success) {
     throw new AssessmentServiceError(409, incompletePersonalDetailsMessage);
-  }
-}
-
-function assertValidObjectId(assessmentId: string) {
-  if (!ObjectId.isValid(assessmentId)) {
-    throw new AssessmentServiceError(400, "A valid assessment id is required.");
   }
 }

@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { AdminAssessmentEditForm } from "@/components/admin/AdminAssessmentEditForm";
-import { majorApplianceOptions } from "@/lib/catalogs";
+import {
+  formatAssessmentStatus,
+  formatMajorAppliances,
+  isEmptyValue,
+} from "@/lib/assessment-display";
 import { formatDateTime } from "@/lib/format";
 import { getAdminAssessmentDetail } from "@/services/adminAssessments";
-import { requireAdminSession } from "@/services/adminSession";
 import type { AdminAssessmentDetail } from "@/types/admin";
 import { personalDetailsSchema } from "@/validation/assessment";
 
@@ -18,8 +21,6 @@ type AssessmentDetailPageProps = {
 export default async function AssessmentDetailPage({
   params,
 }: AssessmentDetailPageProps) {
-  await requireAdminSession();
-
   const { assessmentId } = await params;
   const assessment = await getAdminAssessmentDetail(assessmentId);
   const personalDetails = assessment.sections.personalDetails;
@@ -45,7 +46,7 @@ export default async function AssessmentDetailPage({
           </p>
         </div>
         <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm">
-          <p className="font-semibold text-white">{formatStatus(assessment.status)}</p>
+          <p className="font-semibold text-white">{formatAssessmentStatus(assessment.status)}</p>
           <p className="mt-1 text-neutral-300">
             Last activity {formatDateTime(assessment.lastActivityAt)}
           </p>
@@ -53,7 +54,7 @@ export default async function AssessmentDetailPage({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryTile label="Status" value={formatStatus(assessment.status)} />
+        <SummaryTile label="Status" value={formatAssessmentStatus(assessment.status)} />
         <SummaryTile
           label="Last completed step"
           value={String(assessment.lastCompletedStep)}
@@ -212,26 +213,4 @@ function formatCustomerName(assessment: AdminAssessmentDetail) {
   const name = [details?.firstName, details?.lastName].filter(Boolean).join(" ");
 
   return name || "Unnamed customer";
-}
-
-function formatMajorAppliances(appliances?: string[]) {
-  if (!appliances?.length) {
-    return "";
-  }
-
-  return appliances
-    .map(
-      (value) =>
-        majorApplianceOptions.find((option) => option.value === value)?.label ??
-        value,
-    )
-    .join(", ");
-}
-
-function formatStatus(status: string) {
-  return status === "completed" ? "Completed" : "Draft";
-}
-
-function isEmptyValue(value: React.ReactNode) {
-  return value === undefined || value === null || value === "";
 }

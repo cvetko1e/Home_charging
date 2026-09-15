@@ -8,6 +8,7 @@ import {
   updateAssessmentDraftStep,
 } from "@/repositories/assessments";
 import { AssessmentServiceError } from "@/services/errors";
+import { assertValidObjectId } from "@/validation/object-id";
 import {
   assessmentSectionsSchema,
   getSurveyStepSchema,
@@ -29,12 +30,6 @@ export function hashResumeToken(resumeToken: string) {
 
 export function isResumeTokenMatch(resumeToken: string, storedHash: string) {
   return isSecretHashMatch(resumeToken, storedHash);
-}
-
-function assertValidObjectId(assessmentId: string) {
-  if (!ObjectId.isValid(assessmentId)) {
-    throw new AssessmentServiceError(400, "A valid assessment id is required.");
-  }
 }
 
 function assertAuthorized(document: AssessmentDocument, resumeToken: string) {

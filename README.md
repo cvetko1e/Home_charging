@@ -76,9 +76,9 @@ The development server runs on `http://localhost:3000` by default.
 
 ## Seed Data
 
-Seed data creates one development administrator plus completed and draft
-assessments with realistic fictional customer, vehicle, installation and charger
-values:
+Seed data upserts one development administrator plus 50 sample assessments
+(26 completed and 24 drafts) with realistic fictional customer, vehicle,
+installation and charger values:
 
 ```bash
 npm run seed
@@ -91,9 +91,24 @@ ADMIN_SEED_EMAIL=admin@example.com
 ADMIN_SEED_PASSWORD=change-this-development-password
 ```
 
-The seed script refuses to run in production. It upserts the administrator and
-only deletes existing assessments and admin sessions when
-`ALLOW_DATABASE_RESET=true`.
+The seed script refuses to run in production. It upserts the administrator by
+normalized email, updating its password and keeping the existing account ID.
+Assessments have stable `seedId` values in the `home-charging-sample:` namespace,
+protected by a unique sparse index. Repeated runs refresh only those 50 samples
+instead of inserting another batch, retaining their database IDs and resume-token
+hashes. Edits to these samples are overwritten on the next seed run.
+
+Sample values are deterministic for the installed Faker version, and timestamps
+are relative to one instant captured per run. Activity and update dates never
+precede creation or exceed completion (for completed samples); no sample date is
+in the future. The existing draft step distribution is preserved.
+
+With the default `ALLOW_DATABASE_RESET=false`, no data is deleted. Manually
+created assessments and records without these seed IDs are left untouched,
+including samples from older seed versions that had no seed identifier. Those
+legacy samples cannot be safely identified for automatic deduplication.
+Only `ALLOW_DATABASE_RESET=true` deletes all existing assessments and admin
+sessions before recreating the 50 samples; use it only for an intentional reset.
 
 ## Admin Portal
 
@@ -150,8 +165,9 @@ npm run build
 
 The Vitest suite covers assessment validation, resume-token hash verification,
 admin password verification, admin session expiration, admin update whitelisting,
-assessment filter parsing, completion percentage calculation, and draft-only
-drop-off calculations.
+assessment filter parsing and sorting, completion percentage calculation,
+draft-only drop-off calculations, and seed timestamp ordering, deterministic
+generation and idempotent upserts using an in-memory collection mock.
 
 A small MongoDB integration smoke test is included but skipped by default. To run
 it against a live test database:
