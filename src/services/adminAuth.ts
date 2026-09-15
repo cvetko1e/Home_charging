@@ -10,11 +10,13 @@ import {
   toAdminSessionUser,
   upsertAdmin,
 } from "@/repositories/admins";
-import { AssessmentServiceError } from "@/services/errors";
+import { failure, success } from "@/lib/result";
+import type { Result } from "@/types/result";
 import type {
   AdminRole,
   AdminSession,
   AdminSessionDocument,
+  AdminSessionUser,
 } from "@/types/admin";
 
 const passwordSaltRounds = 12;
@@ -22,19 +24,19 @@ const genericLoginError = "Invalid email or password.";
 const dummyPasswordHash =
   "$2b$12$dFx41ob9YAk26X4tK52DpuSz07PcqmFAqBb9Jt.tdcBLvh1j1An2m";
 
-export function normalizeAdminEmail(email: string) {
+export function normalizeAdminEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export async function hashAdminPassword(password: string) {
+export async function hashAdminPassword(password: string): Promise<string> {
   return bcrypt.hash(password, passwordSaltRounds);
 }
 
-export async function verifyAdminPassword(password: string, passwordHash: string) {
+export async function verifyAdminPassword(password: string, passwordHash: string): Promise<boolean> {
   return bcrypt.compare(password, passwordHash);
 }
 
-export function isAdminSessionExpired(expiresAt: Date, now = new Date()) {
+export function isAdminSessionExpired(expiresAt: Date, now = new Date()): boolean {
   return expiresAt.getTime() <= now.getTime();
 }
 
@@ -48,7 +50,7 @@ export async function createDevelopmentAdmin({
   password: string;
   role?: AdminRole;
   active?: boolean;
-}) {
+}): Promise<AdminSessionUser> {
   const now = new Date();
   const passwordHash = await hashAdminPassword(password);
   const admin = await upsertAdmin({
@@ -61,20 +63,25 @@ export async function createDevelopmentAdmin({
   });
 
   if (!admin) {
-    throw new AssessmentServiceError(500, "Development admin could not be saved.");
+    throw new Error("Development admin could not be saved.");
   }
 
   return toAdminSessionUser(admin);
 }
 
-export async function loginAdmin(email: string, password: string) {
+export async function loginAdmin(email: string, password: string): Promise<Result<{
+  admin: AdminSessionUser;
+  sessionToken: string;
+  expiresAt: Date;
+}>> {
   const normalizedEmail = normalizeAdminEmail(email);
   const admin = await findAdminByEmail(normalizedEmail);
+  // Always compare before rejecting missing/inactive accounts to retain timing protection.
   const passwordHash = admin?.passwordHash ?? dummyPasswordHash;
   const passwordMatches = await verifyAdminPassword(password, passwordHash);
 
   if (!admin || !admin.active || !passwordMatches) {
-    throw new AssessmentServiceError(401, genericLoginError);
+    return failure("INVALID_CREDENTIALS", genericLoginError);
   }
 
   const sessionToken = createOpaqueToken();
@@ -91,33 +98,33 @@ export async function loginAdmin(email: string, password: string) {
 
   await insertAdminSession(session);
 
-  return {
+  return success({
     admin: toAdminSessionUser(admin),
     sessionToken,
     expiresAt,
-  };
+  });
 }
 
 export async function validateAdminSessionToken(
   sessionToken: string | undefined | null,
-): Promise<AdminSession | null> {
+): Promise<Result<AdminSession>> {
   if (!sessionToken) {
-    return null;
+    return failure("AUTH_REQUIRED", "Administrator authentication is required.");
   }
 
   const result = await findActiveAdminSessionByTokenHash(hashSecret(sessionToken));
 
   if (!result || isAdminSessionExpired(result.session.expiresAt)) {
-    return null;
+    return failure("AUTH_REQUIRED", "Administrator authentication is required.");
   }
 
-  return {
+  return success({
     admin: toAdminSessionUser(result.admin),
     expiresAt: result.session.expiresAt.toISOString(),
-  };
+  });
 }
 
-export async function logoutAdmin(sessionToken: string | undefined | null) {
+export async function logoutAdmin(sessionToken: string | undefined | null): Promise<void> {
   if (!sessionToken) {
     return;
   }

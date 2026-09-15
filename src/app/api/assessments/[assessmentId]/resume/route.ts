@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonFromError, readJsonBody } from "@/app/api/_utils";
+import { jsonFromServiceError, jsonFromError, readJsonBody } from "@/app/api/_utils";
 import {
   createAssessmentResumeCookieValue,
   getAssessmentResumeCookieName,
@@ -22,9 +22,12 @@ type RouteParams = {
 export async function POST(request: Request, { params }: RouteParams) {
   try {
     const { assessmentId } = assessmentRouteParamsSchema.parse(await params);
-    const { resumeToken } = authorizationSchema.parse(await readJsonBody(request));
-    const assessment = await getAuthorizedAssessment(assessmentId, resumeToken);
-    const response = NextResponse.json({ assessment });
+    const json = await readJsonBody(request);
+    if (!json.success) return jsonFromServiceError(json.error);
+    const { resumeToken } = authorizationSchema.parse(json.data);
+    const result = await getAuthorizedAssessment(assessmentId, resumeToken);
+    if (!result.success) return jsonFromServiceError(result.error);
+    const response = NextResponse.json({ assessment: result.data });
 
     response.cookies.set(
       getAssessmentResumeCookieName(),

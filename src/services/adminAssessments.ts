@@ -5,20 +5,22 @@ import {
   updateAssessmentByAdmin,
   type AssessmentAdminEditableFields,
 } from "@/repositories/assessments";
-import { AssessmentServiceError } from "@/services/errors";
+import { failure, success, validationFailure } from "@/lib/result";
+import type { Result } from "@/types/result";
 import type {
   AdminAssessmentDetail,
   AdminAssessmentListItem,
+  AdminAssessmentList,
   AdminDashboardStats,
   AssessmentDropOffStat,
 } from "@/types/admin";
 import type { AssessmentDocument } from "@/repositories/assessments";
 import type { SurveyStepKey } from "@/types/assessment";
-import { assessmentListQuerySchema } from "@/validation/admin";
+import { adminAssessmentUpdateSchema, assessmentListQuerySchema } from "@/validation/admin";
 import type { AssessmentListQuery } from "@/validation/admin";
 import { getDraftInactivityDays } from "@/lib/env";
 import { personalDetailsSchema } from "@/validation/assessment";
-import { assertValidObjectId } from "@/validation/object-id";
+import { validateObjectId } from "@/validation/object-id";
 
 const adminContactFields = [
   "firstName",
@@ -72,17 +74,18 @@ const dropOffLabels = [
 
 export function parseAssessmentListSearchParams(
   searchParams: URLSearchParams,
-): AssessmentListQuery {
+): Result<AssessmentListQuery> {
   const rawValues = Object.fromEntries(searchParams.entries());
-  const parsed = assessmentListQuerySchema.parse(rawValues);
+  const parsed = assessmentListQuerySchema.safeParse(rawValues);
+  if (!parsed.success) return validationFailure(parsed.error);
 
-  return {
-    ...parsed,
-    pageSize: Math.min(parsed.pageSize, 50),
-  };
+  return success({
+    ...parsed.data,
+    pageSize: Math.min(parsed.data.pageSize, 50),
+  });
 }
 
-export async function getAdminAssessmentList(query: AssessmentListQuery) {
+export async function getAdminAssessmentList(query: AssessmentListQuery): Promise<AdminAssessmentList> {
   const { documents, total } = await listAssessmentsForAdmin({
     page: query.page,
     pageSize: query.pageSize,
@@ -111,23 +114,29 @@ export async function getAdminAssessmentList(query: AssessmentListQuery) {
   };
 }
 
-export async function getAdminAssessmentDetail(assessmentId: string) {
-  assertValidObjectId(assessmentId);
+export async function getAdminAssessmentDetail(assessmentId: string): Promise<Result<AdminAssessmentDetail>> {
+  const idCheck = validateObjectId(assessmentId);
+  if (!idCheck.success) return idCheck;
 
   const document = await findAssessmentForAdmin(assessmentId);
 
   if (!document) {
-    throw new AssessmentServiceError(404, "Assessment was not found.");
+    return failure("NOT_FOUND", "Assessment was not found.");
   }
 
-  return toAdminAssessmentDetail(document);
+  return success(toAdminAssessmentDetail(document));
 }
 
 export async function updateAdminAssessment(
   assessmentId: string,
   updates: AssessmentAdminEditableFields,
-) {
-  assertValidObjectId(assessmentId);
+): Promise<Result<AdminAssessmentDetail>> {
+  const idCheck = validateObjectId(assessmentId);
+  if (!idCheck.success) return idCheck;
+
+  const updateCheck = adminAssessmentUpdateSchema.safeParse(updates);
+  if (!updateCheck.success) return validationFailure(updateCheck.error);
+  updates = updateCheck.data;
 
   const updatesContactFields = hasContactFieldUpdates(updates);
 
@@ -135,10 +144,12 @@ export async function updateAdminAssessment(
     const existingDocument = await findAssessmentForAdmin(assessmentId);
 
     if (!existingDocument) {
-      throw new AssessmentServiceError(404, "Assessment was not found.");
+      return failure("NOT_FOUND", "Assessment was not found.");
     }
 
-    assertCompletePersonalDetails(existingDocument);
+    if (!personalDetailsSchema.safeParse(existingDocument.sections.personalDetails).success) {
+      return failure("CONFLICT", incompletePersonalDetailsMessage);
+    }
   }
 
   const document = await updateAssessmentByAdmin(assessmentId, updates);
@@ -148,17 +159,17 @@ export async function updateAdminAssessment(
       const existingDocument = await findAssessmentForAdmin(assessmentId);
 
       if (existingDocument) {
-        throw new AssessmentServiceError(409, incompletePersonalDetailsMessage);
+        return failure("CONFLICT", incompletePersonalDetailsMessage);
       }
     }
 
-    throw new AssessmentServiceError(404, "Assessment was not found.");
+    return failure("NOT_FOUND", "Assessment was not found.");
   }
 
-  return toAdminAssessmentDetail(document);
+  return success(toAdminAssessmentDetail(document));
 }
 
-export async function getAdminDashboardStats() {
+export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   const inactivityDays = getDraftInactivityDays();
   const inactiveBefore = new Date(
     Date.now() - inactivityDays * 24 * 60 * 60 * 1000,
@@ -219,7 +230,7 @@ function toAdminDashboardStats(
   };
 }
 
-export function calculateCompletionPercentage(total: number, completed: number) {
+export function calculateCompletionPercentage(total: number, completed: number): number {
   return total === 0 ? 0 : Math.round((completed / total) * 100);
 }
 
@@ -275,16 +286,6 @@ function toAdminAssessmentListItem(
   };
 }
 
-function hasContactFieldUpdates(updates: AssessmentAdminEditableFields) {
+function hasContactFieldUpdates(updates: AssessmentAdminEditableFields): boolean {
   return adminContactFields.some((field) => updates[field] !== undefined);
-}
-
-function assertCompletePersonalDetails(document: AssessmentDocument) {
-  const personalDetailsCheck = personalDetailsSchema.safeParse(
-    document.sections.personalDetails,
-  );
-
-  if (!personalDetailsCheck.success) {
-    throw new AssessmentServiceError(409, incompletePersonalDetailsMessage);
-  }
 }

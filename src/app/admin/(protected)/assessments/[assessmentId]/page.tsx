@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { getAdminAssessmentDetail } from "@/services/adminAssessments";
 import type { AdminAssessmentDetail } from "@/types/admin";
 import { personalDetailsSchema } from "@/validation/assessment";
+import AssessmentDetailError from "./error";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,11 @@ export default async function AssessmentDetailPage({
   params,
 }: AssessmentDetailPageProps) {
   const { assessmentId } = await params;
-  const assessment = await getAdminAssessmentDetail(assessmentId);
+  const result = await getAdminAssessmentDetail(assessmentId);
+  if (!result.success) {
+    return <AssessmentDetailError message={result.error.message} />;
+  }
+  const assessment = result.data;
   const personalDetails = assessment.sections.personalDetails;
 
   return (

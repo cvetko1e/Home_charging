@@ -1,58 +1,5 @@
 import type { MajorAppliance } from "@/types/assessment";
-
-export type VehicleCatalogModel = {
-  name: string;
-  years: number[];
-};
-
-export type VehicleCatalogEntry = {
-  manufacturer: string;
-  models: VehicleCatalogModel[];
-};
-
-export type ChargerCatalogEntry = {
-  brand: string;
-  models: string[];
-};
-
-export const vehicleCatalog: VehicleCatalogEntry[] = [
-  {
-    manufacturer: "Tesla",
-    models: [
-      { name: "Model 3", years: [2022, 2023, 2024, 2025, 2026] },
-      { name: "Model Y", years: [2022, 2023, 2024, 2025, 2026] },
-    ],
-  },
-  {
-    manufacturer: "Hyundai",
-    models: [
-      { name: "Ioniq 5", years: [2022, 2023, 2024, 2025, 2026] },
-      { name: "Kona Electric", years: [2021, 2022, 2023, 2024, 2025] },
-    ],
-  },
-  {
-    manufacturer: "Volkswagen",
-    models: [
-      { name: "ID.4", years: [2021, 2022, 2023, 2024, 2025] },
-      { name: "ID. Buzz", years: [2024, 2025, 2026] },
-    ],
-  },
-];
-
-export const chargerCatalog: ChargerCatalogEntry[] = [
-  {
-    brand: "ChargePoint",
-    models: ["Home Flex"],
-  },
-  {
-    brand: "Wallbox",
-    models: ["Pulsar Plus", "Pulsar Max"],
-  },
-  {
-    brand: "Tesla",
-    models: ["Universal Wall Connector", "Wall Connector"],
-  },
-];
+import type { VehicleCatalogEntry, VehicleCatalogModel, ChargerCatalogEntry } from "@/types/catalogs";
 
 export const majorApplianceValues = [
   "water_heater",
@@ -75,20 +22,20 @@ export const majorApplianceOptions: Array<{
   { label: "Other high-consumption appliance", value: "other" },
 ];
 
-export function getVehicleModels(manufacturer: string) {
+export function getVehicleModels(catalog: VehicleCatalogEntry[], manufacturer: string): VehicleCatalogModel[] {
   return (
-    vehicleCatalog.find((entry) => entry.manufacturer === manufacturer)?.models ??
+    catalog.find((entry) => entry.manufacturer === manufacturer)?.models ??
     []
   );
 }
 
-export function getVehicleYears(manufacturer: string, model: string) {
+export function getVehicleYears(catalog: VehicleCatalogEntry[], manufacturer: string, model: string): number[] {
   return (
-    getVehicleModels(manufacturer).find((entry) => entry.name === model)?.years ??
+    getVehicleModels(catalog, manufacturer).find((entry) => entry.name === model)?.years ??
     []
   );
 }
 
-export function getChargerModels(brand: string) {
-  return chargerCatalog.find((entry) => entry.brand === brand)?.models ?? [];
+export function getChargerModels(catalog: ChargerCatalogEntry[], brand: string): string[] {
+  return catalog.find((entry) => entry.brand === brand)?.models ?? [];
 }

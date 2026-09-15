@@ -2,9 +2,11 @@
 
 export function StepActions({
   isSaving,
+  saveDisabled = false,
   onBack,
 }: {
   isSaving: boolean;
+  saveDisabled?: boolean;
   onBack?: () => void;
 }) {
   return (
@@ -22,7 +24,7 @@ export function StepActions({
       )}
       <button
         type="submit"
-        disabled={isSaving}
+        disabled={isSaving || saveDisabled}
         className="rounded-md bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSaving ? "Saving..." : "Save and continue"}

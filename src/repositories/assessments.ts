@@ -84,7 +84,7 @@ async function getAssessmentsCollection(): Promise<
   return db.collection<AssessmentDocument>(collectionName);
 }
 
-export async function createAssessmentIndexes() {
+export async function createAssessmentIndexes(): Promise<void> {
   const collection = await getAssessmentsCollection();
 
   await collection.createIndexes([
@@ -103,14 +103,14 @@ export async function createAssessmentIndexes() {
   ]);
 }
 
-export async function insertAssessmentDraft(document: AssessmentDocument) {
+export async function insertAssessmentDraft(document: AssessmentDocument): Promise<AssessmentDocument> {
   const collection = await getAssessmentsCollection();
   await collection.insertOne(document);
 
   return document;
 }
 
-export async function findAssessmentById(assessmentId: string) {
+export async function findAssessmentById(assessmentId: string): Promise<AssessmentDocument | null> {
   const collection = await getAssessmentsCollection();
 
   return collection.findOne({ _id: new ObjectId(assessmentId) });
@@ -118,7 +118,7 @@ export async function findAssessmentById(assessmentId: string) {
 
 export async function listAssessmentsForAdmin(
   options: AssessmentAdminListOptions,
-) {
+): Promise<{ documents: AssessmentDocument[]; total: number }> {
   const collection = await getAssessmentsCollection();
   const filter = buildAssessmentAdminFilter(options.filters);
   const skip = (options.page - 1) * options.pageSize;
@@ -139,7 +139,7 @@ export async function listAssessmentsForAdmin(
   };
 }
 
-export async function findAssessmentForAdmin(assessmentId: string) {
+export async function findAssessmentForAdmin(assessmentId: string): Promise<AssessmentDocument | null> {
   return findAssessmentById(assessmentId);
 }
 
@@ -149,7 +149,7 @@ export async function updateAssessmentDraftStep(
     AssessmentDocument,
     "currentStep" | "lastCompletedStep" | "sections" | "updatedAt" | "lastActivityAt"
   >,
-) {
+): Promise<AssessmentDocument | null> {
   const collection = await getAssessmentsCollection();
   const _id = new ObjectId(assessmentId);
 
@@ -173,7 +173,7 @@ export async function completeAssessmentDraft(
     | "lastActivityAt"
     | "completedAt"
   >,
-) {
+): Promise<AssessmentDocument | null> {
   const collection = await getAssessmentsCollection();
   const _id = new ObjectId(assessmentId);
 
@@ -189,7 +189,7 @@ export async function completeAssessmentDraft(
 export async function updateAssessmentByAdmin(
   assessmentId: string,
   updates: AssessmentAdminEditableFields,
-) {
+): Promise<AssessmentDocument | null> {
   const collection = await getAssessmentsCollection();
   const _id = new ObjectId(assessmentId);
   const filter: Document = { _id };

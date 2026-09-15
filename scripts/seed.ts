@@ -5,6 +5,8 @@ import type { AssessmentDocument } from "../src/repositories/assessments";
 import { createDevelopmentAdmin } from "../src/services/adminAuth";
 import { loadLocalEnv } from "./load-local-env";
 import { assessmentCount, upsertSeedAssessments } from "./seed-assessments";
+import { upsertSeedCatalogs } from "./seed-catalogs";
+import type { ChargerDocument, VehicleDocument } from "../src/repositories/catalogs";
 
 async function main() {
   loadLocalEnv();
@@ -20,17 +22,16 @@ async function main() {
     throw new Error("ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD are required.");
   }
 
-  await ensureDatabaseIndexes();
-
-  const db = await getMongoDb();
-
   if (shouldAllowDatabaseReset()) {
-    await Promise.all([
-      db.collection("assessments").deleteMany({}),
-      db.collection("admin_sessions").deleteMany({}),
-    ]);
+    throw new Error("Seeding cannot reset existing data. Set ALLOW_DATABASE_RESET=false.");
   }
 
+  await ensureDatabaseIndexes();
+  const db = await getMongoDb();
+  const catalogs = await upsertSeedCatalogs(
+    db.collection<VehicleDocument>("vehicles"),
+    db.collection<ChargerDocument>("chargers"),
+  );
   const admin = await createDevelopmentAdmin({
     email: adminEmail,
     password: adminPassword,
@@ -40,6 +41,7 @@ async function main() {
   );
 
   console.log(`Seeded admin ${admin.email}.`);
+  console.log(`Upserted ${catalogs.vehicles} vehicle manufacturers and ${catalogs.chargers} charger brands.`);
   console.log(
     `Upserted ${seededCount} assessments (${assessmentCount.completed} completed, ${assessmentCount.drafts} drafts).`,
   );

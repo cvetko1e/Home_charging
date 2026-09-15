@@ -9,6 +9,7 @@ import { StatisticCard } from "@/components/admin/StatisticCard";
 import { AssessmentFilters } from "@/components/admin/AssessmentFilters";
 import { AssessmentsTable } from "@/components/admin/AssessmentsTable";
 import { toUrlSearchParams } from "@/lib/admin-dashboard-query";
+import AdminDashboardError from "./error";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,12 @@ export default async function AdminDashboardPage({
   const rawSearchParams = await searchParams;
   const urlSearchParams = toUrlSearchParams(rawSearchParams);
   const query = parseAssessmentListSearchParams(urlSearchParams);
+  if (!query.success) {
+    return <AdminDashboardError message={query.error.message} />;
+  }
   const [stats, list] = await Promise.all([
     getAdminDashboardStats(),
-    getAdminAssessmentList(query),
+    getAdminAssessmentList(query.data),
   ]);
 
   return (

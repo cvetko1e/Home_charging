@@ -1,4 +1,5 @@
 import { MongoClient, type Db } from "mongodb";
+import { DatabaseConfigurationError } from "@/lib/database-errors";
 
 type MongoGlobal = typeof globalThis & {
   _mongoClientPromise?: Promise<MongoClient>;
@@ -8,11 +9,11 @@ const globalForMongo = globalThis as MongoGlobal;
 
 let productionClientPromise: Promise<MongoClient> | undefined;
 
-function createMongoClientPromise() {
+function createMongoClientPromise(): Promise<MongoClient> {
   const uri = process.env.MONGODB_URI;
 
   if (!uri) {
-    throw new Error("Missing MONGODB_URI environment variable.");
+    throw new DatabaseConfigurationError("MONGODB_URI");
   }
 
   const client = new MongoClient(uri, {
@@ -22,7 +23,7 @@ function createMongoClientPromise() {
   return client.connect();
 }
 
-function createCachedMongoClientPromise() {
+function createCachedMongoClientPromise(): Promise<MongoClient> {
   const clientPromise = createMongoClientPromise().catch((error) => {
     if (process.env.NODE_ENV === "development") {
       globalForMongo._mongoClientPromise = undefined;
@@ -36,7 +37,7 @@ function createCachedMongoClientPromise() {
   return clientPromise;
 }
 
-export function getMongoClient() {
+export function getMongoClient(): Promise<MongoClient> {
   if (process.env.NODE_ENV === "development") {
     globalForMongo._mongoClientPromise ??= createCachedMongoClientPromise();
 
@@ -52,7 +53,7 @@ export async function getMongoDb(): Promise<Db> {
   const dbName = process.env.MONGODB_DB_NAME;
 
   if (!dbName) {
-    throw new Error("Missing MONGODB_DB_NAME environment variable.");
+    throw new DatabaseConfigurationError("MONGODB_DB_NAME");
   }
 
   const client = await getMongoClient();

@@ -1,10 +1,7 @@
 import { base, en, Faker } from "@faker-js/faker";
 import type { Collection } from "mongodb";
-import {
-  chargerCatalog,
-  majorApplianceValues,
-  vehicleCatalog,
-} from "../src/lib/catalogs";
+import { majorApplianceValues } from "../src/lib/catalogs";
+import { vehicleCatalog, chargerCatalog } from "./catalog-seed-data";
 import { createOpaqueToken, hashSecret } from "../src/lib/security";
 import type { AssessmentDocument } from "../src/repositories/assessments";
 import { assessmentSectionsSchema } from "../src/validation/assessment";

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   calculateCompletionPercentage,
   normalizeDropOffStats,
@@ -20,7 +20,8 @@ describe("admin assessment helpers", () => {
     });
     const result = parseAssessmentListSearchParams(params);
 
-    expect(result).toMatchObject({
+    assert(result.success);
+    expect(result.data).toMatchObject({
       page: 2,
       pageSize: 25,
       sort: "customerName",

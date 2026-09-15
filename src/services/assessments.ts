@@ -7,8 +7,10 @@ import {
   type AssessmentDocument,
   updateAssessmentDraftStep,
 } from "@/repositories/assessments";
-import { AssessmentServiceError } from "@/services/errors";
-import { assertValidObjectId } from "@/validation/object-id";
+import { failure, success, validationFailure } from "@/lib/result";
+import type { Result } from "@/types/result";
+import { validateObjectId } from "@/validation/object-id";
+import { validateChargerChoice, validateVehicleChoice } from "@/services/catalogs";
 import {
   assessmentSectionsSchema,
   getSurveyStepSchema,
@@ -17,28 +19,20 @@ import {
   reviewStepNumber,
   type Assessment,
   type AssessmentSections,
+  type SurveyStepKey,
   type SurveyStepNumber,
 } from "@/types/assessment";
 
-export function createResumeToken() {
+export function createResumeToken(): string {
   return createOpaqueToken();
 }
 
-export function hashResumeToken(resumeToken: string) {
+export function hashResumeToken(resumeToken: string): string {
   return hashSecret(resumeToken);
 }
 
-export function isResumeTokenMatch(resumeToken: string, storedHash: string) {
+export function isResumeTokenMatch(resumeToken: string, storedHash: string): boolean {
   return isSecretHashMatch(resumeToken, storedHash);
-}
-
-function assertAuthorized(document: AssessmentDocument, resumeToken: string) {
-  if (!isResumeTokenMatch(resumeToken, document.resumeTokenHash)) {
-    throw new AssessmentServiceError(
-      404,
-      "Assessment was not found or the resume token is invalid.",
-    );
-  }
 }
 
 function toAssessment(document: AssessmentDocument): Assessment {
@@ -58,24 +52,26 @@ function toAssessment(document: AssessmentDocument): Assessment {
 async function getAuthorizedAssessmentDocument(
   assessmentId: string,
   resumeToken: string,
-) {
-  assertValidObjectId(assessmentId);
+): Promise<Result<AssessmentDocument>> {
+  const idCheck = validateObjectId(assessmentId);
+  if (!idCheck.success) return idCheck;
 
   const document = await findAssessmentById(assessmentId);
 
-  if (!document) {
-    throw new AssessmentServiceError(
-      404,
+  if (!document || !isResumeTokenMatch(resumeToken, document.resumeTokenHash)) {
+    return failure(
+      "NOT_FOUND",
       "Assessment was not found or the resume token is invalid.",
     );
   }
 
-  assertAuthorized(document, resumeToken);
-
-  return document;
+  return success(document);
 }
 
-export async function createAssessmentDraft() {
+export async function createAssessmentDraft(): Promise<{
+  assessment: Assessment;
+  resumeToken: string;
+}> {
   const now = new Date();
   const resumeToken = createResumeToken();
 
@@ -102,13 +98,14 @@ export async function createAssessmentDraft() {
 export async function getAuthorizedAssessment(
   assessmentId: string,
   resumeToken: string,
-) {
-  const document = await getAuthorizedAssessmentDocument(
+): Promise<Result<Assessment>> {
+  const result = await getAuthorizedAssessmentDocument(
     assessmentId,
     resumeToken,
   );
 
-  return toAssessment(document);
+  if (!result.success) return result;
+  return success(toAssessment(result.data));
 }
 
 export async function saveAssessmentStep(
@@ -116,26 +113,40 @@ export async function saveAssessmentStep(
   resumeToken: string,
   step: SurveyStepNumber,
   data: unknown,
-) {
-  const document = await getAuthorizedAssessmentDocument(
+): Promise<Result<Assessment>> {
+  const result = await getAuthorizedAssessmentDocument(
     assessmentId,
     resumeToken,
   );
+  if (!result.success) return result;
+  const document = result.data;
 
   if (document.status === "completed") {
-    throw new AssessmentServiceError(
-      409,
+    return failure(
+      "CONFLICT",
       "Completed assessments cannot be edited.",
     );
   }
 
   const schema = getSurveyStepSchema(step);
-  const parsedData = schema.parse(data);
+  const parsedData = schema.safeParse(data);
+  if (!parsedData.success) return validationFailure(parsedData.error);
+  let validatedData = parsedData.data;
+  if (step === 2) {
+    const choice = await validateVehicleChoice(parsedData.data);
+    if (!choice.success) return choice;
+    validatedData = choice.data;
+  }
+  if (step === 6) {
+    const choice = await validateChargerChoice(parsedData.data);
+    if (!choice.success) return choice;
+    validatedData = choice.data;
+  }
   const nextStep = step === 6 ? reviewStepNumber : ((step + 1) as SurveyStepNumber);
   const now = new Date();
   const sections: AssessmentSections = {
     ...document.sections,
-    [stepToSectionKey(step)]: parsedData,
+    [stepToSectionKey(step)]: validatedData,
   };
 
   const updatedDocument = await updateAssessmentDraftStep(assessmentId, {
@@ -147,24 +158,26 @@ export async function saveAssessmentStep(
   });
 
   if (!updatedDocument) {
-    throw new AssessmentServiceError(404, "Assessment could not be updated.");
+    return failure("NOT_FOUND", "Assessment could not be updated.");
   }
 
-  return toAssessment(updatedDocument);
+  return success(toAssessment(updatedDocument));
 }
 
 export async function completeAssessment(
   assessmentId: string,
   resumeToken: string,
-) {
-  const document = await getAuthorizedAssessmentDocument(
+): Promise<Result<Assessment>> {
+  const result = await getAuthorizedAssessmentDocument(
     assessmentId,
     resumeToken,
   );
+  if (!result.success) return result;
+  const document = result.data;
 
   if (document.status === "completed") {
-    throw new AssessmentServiceError(
-      409,
+    return failure(
+      "CONFLICT",
       "This assessment has already been submitted.",
     );
   }
@@ -172,8 +185,8 @@ export async function completeAssessment(
   const completionCheck = assessmentSectionsSchema.safeParse(document.sections);
 
   if (!completionCheck.success) {
-    throw new AssessmentServiceError(
-      400,
+    return failure(
+      "INVALID_REQUEST",
       "Complete every assessment step before submitting.",
       completionCheck.error.flatten(),
     );
@@ -190,13 +203,13 @@ export async function completeAssessment(
   });
 
   if (!updatedDocument) {
-    throw new AssessmentServiceError(404, "Assessment could not be submitted.");
+    return failure("NOT_FOUND", "Assessment could not be submitted.");
   }
 
-  return toAssessment(updatedDocument);
+  return success(toAssessment(updatedDocument));
 }
 
-function stepToSectionKey(step: SurveyStepNumber) {
+function stepToSectionKey(step: SurveyStepNumber): SurveyStepKey {
   switch (step) {
     case 1:
       return "personalDetails";

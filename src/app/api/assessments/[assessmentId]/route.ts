@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jsonError, jsonFromError } from "@/app/api/_utils";
+import { jsonFromServiceError, jsonFromError } from "@/app/api/_utils";
 import {
   getAssessmentResumeCookieName,
   readAssessmentResumeToken,
@@ -29,14 +29,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ) ?? request.headers.get("x-resume-token");
 
     if (!resumeToken) {
-      return jsonError("A resume session or token is required.", 401);
+      return jsonFromServiceError({
+        code: "AUTH_REQUIRED",
+        message: "A resume session or token is required.",
+      });
     }
 
     authorizationSchema.parse({ resumeToken });
 
-    const assessment = await getAuthorizedAssessment(assessmentId, resumeToken);
+    const result = await getAuthorizedAssessment(assessmentId, resumeToken);
 
-    return NextResponse.json({ assessment });
+    if (!result.success) return jsonFromServiceError(result.error);
+    return NextResponse.json({ assessment: result.data });
   } catch (error) {
     return jsonFromError(error);
   }

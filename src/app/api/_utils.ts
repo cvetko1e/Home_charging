@@ -1,12 +1,26 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { ZodError } from "zod";
-import { AssessmentServiceError } from "@/services/errors";
+import { classifyDatabaseError } from "@/lib/database-errors";
+import { failure, success, validationFailure } from "@/lib/result";
+import type { ErrorCode, Result, ServiceError } from "@/types/result";
+
+const errorStatuses = {
+  VALIDATION_ERROR: 400,
+  AUTH_REQUIRED: 401,
+  INVALID_CREDENTIALS: 401,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  DATABASE_UNAVAILABLE: 503,
+  DATABASE_CONFIGURATION_ERROR: 500,
+  INVALID_REQUEST: 400,
+} satisfies Record<ErrorCode, number>;
 
 export function jsonError(
   message: string,
   status: number,
   details?: unknown,
-) {
+): NextResponse {
   return NextResponse.json(
     {
       error: {
@@ -18,33 +32,35 @@ export function jsonError(
   );
 }
 
-export function jsonFromError(error: unknown) {
+export function jsonFromServiceError(error: ServiceError): NextResponse {
+  return jsonError(error.message, errorStatuses[error.code], error.details);
+}
+
+export function jsonFromError(error: unknown): NextResponse {
+  // Redirects, notFound(), and other Next.js control flow must reach Next.js.
+  unstable_rethrow(error);
+
   if (error instanceof ZodError) {
-    return jsonError("Validation failed.", 400, error.flatten());
+    return jsonFromServiceError(validationFailure(error).error);
   }
 
-  if (error instanceof AssessmentServiceError) {
-    return jsonError(error.message, error.status, error.details);
-  }
-
-  if (error instanceof Error && error.name === "MongoServerSelectionError") {
-    return jsonError(
-      "Database connection failed. Verify that MongoDB is running and MONGODB_URI is correct.",
-      503,
-    );
-  }
-
-  if (error instanceof Error && error.message.startsWith("Missing MONGODB_")) {
-    return jsonError(error.message, 500);
+  // Passing the original object preserves its stack and cause for server logs.
+  console.error("API request failed:", error);
+  const databaseError = classifyDatabaseError(error);
+  if (databaseError) {
+    return jsonFromServiceError(databaseError);
   }
 
   return jsonError("An unexpected error occurred.", 500);
 }
 
-export async function readJsonBody(request: Request) {
+export async function readJsonBody(request: Request): Promise<Result<unknown>> {
   try {
-    return await request.json();
-  } catch {
-    throw new AssessmentServiceError(400, "Request body must be valid JSON.");
+    return success(await request.json());
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return failure("INVALID_REQUEST", "Request body must be valid JSON.");
+    }
+    throw error;
   }
 }

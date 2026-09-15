@@ -66,6 +66,14 @@ export type AdminAssessmentDetail = {
   completedAt?: string;
 };
 
+export type AdminAssessmentList = {
+  assessments: AdminAssessmentListItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
 export type AssessmentDropOffStat = {
   step: number;
   label: string;

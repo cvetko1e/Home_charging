@@ -1,12 +1,5 @@
 import { z } from "zod";
-import {
-  chargerCatalog,
-  getChargerModels,
-  getVehicleModels,
-  getVehicleYears,
-  majorApplianceValues,
-  vehicleCatalog,
-} from "@/lib/catalogs";
+import { majorApplianceValues } from "@/lib/catalogs";
 import { surveyStepNumbers, type SurveyStepNumber } from "@/types/assessment";
 
 export const phonePattern = /^\+?[\d\s().-]{7,20}$/;
@@ -56,8 +49,6 @@ const integerInput = (fieldName: string) =>
     z.number().int(`${fieldName} must be a whole number.`),
   );
 
-const manufacturerNames = vehicleCatalog.map((entry) => entry.manufacturer);
-const chargerBrands = chargerCatalog.map((entry) => entry.brand);
 export const resumeTokenSchema = z
   .string()
   .min(32, "A valid resume token is required.");
@@ -80,43 +71,11 @@ export const personalDetailsSchema = z.object({
   ),
 });
 
-export const vehicleDetailsSchema = z
-  .object({
-    manufacturer: requiredText("Manufacturer", 100),
-    model: requiredText("Model", 100),
-    year: integerInput("Year"),
-  })
-  .superRefine((value, context) => {
-    if (!manufacturerNames.includes(value.manufacturer)) {
-      context.addIssue({
-        code: "custom",
-        message: "Choose a listed manufacturer.",
-        path: ["manufacturer"],
-      });
-      return;
-    }
-
-    const modelNames = getVehicleModels(value.manufacturer).map(
-      (model) => model.name,
-    );
-
-    if (!modelNames.includes(value.model)) {
-      context.addIssue({
-        code: "custom",
-        message: "Choose a listed model for the selected manufacturer.",
-        path: ["model"],
-      });
-      return;
-    }
-
-    if (!getVehicleYears(value.manufacturer, value.model).includes(value.year)) {
-      context.addIssue({
-        code: "custom",
-        message: "Choose a listed year for the selected model.",
-        path: ["year"],
-      });
-    }
-  });
+export const vehicleDetailsSchema = z.object({
+  manufacturer: requiredText("Manufacturer", 100),
+  model: requiredText("Model", 100),
+  year: integerInput("Year"),
+});
 
 export const electricalPanelSchema = z.object({
   panelLocation: requiredText("Panel location"),
@@ -156,15 +115,6 @@ export const evChargerSchema = z
       return;
     }
 
-    if (!chargerBrands.includes(value.chargerBrand)) {
-      context.addIssue({
-        code: "custom",
-        message: "Choose a listed charger brand.",
-        path: ["chargerBrand"],
-      });
-      return;
-    }
-
     if (!value.chargerModel) {
       context.addIssue({
         code: "custom",
@@ -174,13 +124,6 @@ export const evChargerSchema = z
       return;
     }
 
-    if (!getChargerModels(value.chargerBrand).includes(value.chargerModel)) {
-      context.addIssue({
-        code: "custom",
-        message: "Choose a listed charger model for the selected brand.",
-        path: ["chargerModel"],
-      });
-    }
   });
 
 export const assessmentSectionsSchema = z.object({

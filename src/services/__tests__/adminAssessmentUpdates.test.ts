@@ -1,5 +1,5 @@
 import { ObjectId, type Document, type FindOneAndUpdateOptions } from "mongodb";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   completeAssessmentDraft,
   updateAssessmentDraftStep,
@@ -153,10 +153,10 @@ describe("assessment updates", () => {
       updateAdminAssessment(assessment._id.toHexString(), {
         firstName: "Morgan",
       }),
-    ).rejects.toMatchObject({
-      status: 409,
+    ).resolves.toMatchObject({ success: false, error: {
+      code: "CONFLICT",
       message: incompletePersonalDetailsMessage,
-    });
+    } });
 
     expect(collectionMock.findOneAndUpdate).not.toHaveBeenCalled();
   });
@@ -168,9 +168,9 @@ describe("assessment updates", () => {
       updateAdminAssessment(assessment._id.toHexString(), {
         email: "morgan@example.com",
       }),
-    ).rejects.toMatchObject({
-      status: 409,
-    });
+    ).resolves.toMatchObject({ success: false, error: {
+      code: "CONFLICT",
+    } });
 
     expect(assessment.sections.personalDetails).toBeUndefined();
   });
@@ -206,7 +206,8 @@ describe("assessment updates", () => {
       },
     );
 
-    expect(updatedAssessment.adminNotes).toBe("Customer asked for a callback.");
+    assert(updatedAssessment.success);
+    expect(updatedAssessment.data.adminNotes).toBe("Customer asked for a callback.");
     expect(assessment.adminNotes).toBe("Customer asked for a callback.");
     expect(assessment.sections.personalDetails).toBeUndefined();
     expect(collectionMock.findOneAndUpdate.mock.calls[0][0]).not.toHaveProperty(
@@ -233,13 +234,14 @@ describe("assessment updates", () => {
       },
     );
 
-    expect(updatedAssessment.sections.personalDetails).toEqual({
+    assert(updatedAssessment.success);
+    expect(updatedAssessment.data.sections.personalDetails).toEqual({
       ...validPersonalDetails,
       firstName: "Morgan",
       email: "morgan@example.com",
     });
     expect(assessment.sections.personalDetails).toEqual(
-      updatedAssessment.sections.personalDetails,
+      updatedAssessment.data.sections.personalDetails,
     );
 
     const updateFilter = collectionMock.findOneAndUpdate.mock.calls[0][0] as Document;
@@ -272,10 +274,10 @@ describe("assessment updates", () => {
       updateAdminAssessment(assessment._id.toHexString(), {
         lastName: "Stone",
       }),
-    ).rejects.toMatchObject({
-      status: 409,
+    ).resolves.toMatchObject({ success: false, error: {
+      code: "CONFLICT",
       message: incompletePersonalDetailsMessage,
-    });
+    } });
 
     expect(collectionMock.findOneAndUpdate).not.toHaveBeenCalled();
     expect(assessment.sections.personalDetails).toEqual({
@@ -295,7 +297,7 @@ describe("assessment updates", () => {
 
     await expect(updateAdminAssessment(assessment._id.toHexString(), {
       firstName: "Morgan",
-    })).rejects.toMatchObject({ status: 409, message: incompletePersonalDetailsMessage });
+    })).resolves.toMatchObject({ success: false, error: { code: "CONFLICT", message: incompletePersonalDetailsMessage } });
     expect(assessment.sections.personalDetails).toBeUndefined();
   });
 
@@ -304,10 +306,10 @@ describe("assessment updates", () => {
       updateAdminAssessment(new ObjectId().toHexString(), {
         firstName: "Morgan",
       }),
-    ).rejects.toMatchObject({
-      status: 404,
+    ).resolves.toMatchObject({ success: false, error: {
+      code: "NOT_FOUND",
       message: "Assessment was not found.",
-    });
+    } });
 
     expect(collectionMock.findOneAndUpdate).not.toHaveBeenCalled();
   });

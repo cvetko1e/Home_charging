@@ -3,9 +3,11 @@
 import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { EvCharger } from "@/types/assessment";
-import { evChargerSchema } from "@/validation/assessment";
+import { createChargerSelectionSchema } from "@/validation/catalogs";
 import { formResolver } from "@/lib/form-resolver";
-import { chargerCatalog, getChargerModels } from "@/lib/catalogs";
+import { getChargerModels } from "@/lib/catalogs";
+import { useChargerCatalog } from "@/hooks/use-catalogs";
+import { CatalogStatus } from "../CatalogStatus";
 import { SelectInput } from "@/components/ui/SelectInput";
 import { StepHeader } from "../StepHeader";
 import { StepActions } from "../StepActions";
@@ -17,6 +19,9 @@ export function EvChargerStep({
   onBack,
   onSave,
 }: NavigableStepProps<EvCharger>) {
+  const { state: catalog, retry } = useChargerCatalog();
+  const chargerCatalog = catalog.status === "ready" ? catalog.data.chargers : [];
+  const catalogReady = catalog.status === "ready";
   const {
     register,
     handleSubmit,
@@ -24,7 +29,7 @@ export function EvChargerStep({
     control,
     formState: { errors },
   } = useForm<EvCharger>({
-    resolver: formResolver<EvCharger>(evChargerSchema),
+    resolver: formResolver<EvCharger>(createChargerSelectionSchema(chargerCatalog)),
     defaultValues: defaultValues ?? {
       wantsToPurchaseCharger: false,
       chargerBrand: "",
@@ -35,7 +40,8 @@ export function EvChargerStep({
   const wantsToPurchaseCharger =
     useWatch({ control, name: "wantsToPurchaseCharger" }) ?? false;
   const chargerBrand = useWatch({ control, name: "chargerBrand" }) ?? "";
-  const chargerModels = getChargerModels(chargerBrand);
+  const chargerModel = useWatch({ control, name: "chargerModel" }) ?? "";
+  const chargerModels = getChargerModels(chargerCatalog, chargerBrand);
   const chargerBrandField = register("chargerBrand");
 
   useEffect(() => {
@@ -46,7 +52,9 @@ export function EvChargerStep({
   }, [setValue, wantsToPurchaseCharger]);
 
   return (
-    <form onSubmit={handleSubmit(onSave)} noValidate>
+    <form onSubmit={handleSubmit((data) => {
+      if (!data.wantsToPurchaseCharger || catalogReady) return onSave(data);
+    })} noValidate aria-busy={wantsToPurchaseCharger && catalog.status === "loading"}>
       <StepHeader
         title="EV charger"
         description="Purchasing a charger is optional. Completing the assessment submits the installation request."
@@ -62,44 +70,54 @@ export function EvChargerStep({
         </label>
 
         {wantsToPurchaseCharger ? (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <SelectInput
-              label="Charger brand"
-              error={errors.chargerBrand?.message}
-              inputProps={{
-                ...chargerBrandField,
-                onChange: (event) => {
-                  void chargerBrandField.onChange(event);
-                  setValue("chargerModel", "");
-                },
-              }}
-            >
-              <option value="">Select charger brand</option>
-              {chargerCatalog.map((entry) => (
-                <option key={entry.brand} value={entry.brand}>
-                  {entry.brand}
-                </option>
-              ))}
-            </SelectInput>
-            <SelectInput
-              label="Charger model"
-              error={errors.chargerModel?.message}
-              inputProps={{
-                ...register("chargerModel"),
-                disabled: !chargerBrand,
-              }}
-            >
-              <option value="">Select charger model</option>
-              {chargerModels.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))}
-            </SelectInput>
-          </div>
+          <>
+            <CatalogStatus state={catalog} label="chargers" onRetry={retry} />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <SelectInput
+                label="Charger brand"
+                error={errors.chargerBrand?.message}
+                inputProps={{
+                  ...chargerBrandField,
+                  value: chargerBrand,
+                  disabled: !catalogReady,
+                  onChange: (event) => {
+                    void chargerBrandField.onChange(event);
+                    setValue("chargerModel", "");
+                  },
+                }}
+              >
+                <option value="">Select charger brand</option>
+                {chargerBrand && !chargerCatalog.some((entry) => entry.brand === chargerBrand) ? (
+                  <option value={chargerBrand} disabled>{chargerBrand}</option>
+                ) : null}
+                {chargerCatalog.map((entry) => (
+                  <option key={entry.brand} value={entry.brand}>
+                    {entry.brand}
+                  </option>
+                ))}
+              </SelectInput>
+              <SelectInput
+                label="Charger model"
+                error={errors.chargerModel?.message}
+                inputProps={{
+                  ...register("chargerModel"),
+                  value: chargerModel,
+                  disabled: !catalogReady || !chargerBrand,
+                }}
+              >
+                <option value="">Select charger model</option>
+                {chargerModel && !chargerModels.includes(chargerModel) ? <option value={chargerModel} disabled>{chargerModel}</option> : null}
+                {chargerModels.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
+          </>
         ) : null}
       </div>
-      <StepActions isSaving={isSaving} onBack={onBack} />
+      <StepActions isSaving={isSaving} saveDisabled={wantsToPurchaseCharger && !catalogReady} onBack={onBack} />
     </form>
   );
 }

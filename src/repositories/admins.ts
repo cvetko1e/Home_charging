@@ -23,7 +23,7 @@ async function getAdminSessionsCollection(): Promise<
   return db.collection<AdminSessionDocument>(adminSessionsCollectionName);
 }
 
-export async function createAdminIndexes() {
+export async function createAdminIndexes(): Promise<void> {
   const admins = await getAdminsCollection();
   const sessions = await getAdminSessionsCollection();
 
@@ -35,13 +35,13 @@ export async function createAdminIndexes() {
   ]);
 }
 
-export async function findAdminByEmail(email: string) {
+export async function findAdminByEmail(email: string): Promise<AdminDocument | null> {
   const collection = await getAdminsCollection();
 
   return collection.findOne({ email });
 }
 
-export async function upsertAdmin(document: Omit<AdminDocument, "_id">) {
+export async function upsertAdmin(document: Omit<AdminDocument, "_id">): Promise<AdminDocument | null> {
   const collection = await getAdminsCollection();
   const now = new Date();
 
@@ -64,7 +64,7 @@ export async function upsertAdmin(document: Omit<AdminDocument, "_id">) {
   return collection.findOne({ email: document.email });
 }
 
-export async function insertAdminSession(document: AdminSessionDocument) {
+export async function insertAdminSession(document: AdminSessionDocument): Promise<AdminSessionDocument> {
   const collection = await getAdminSessionsCollection();
   await collection.insertOne(document);
 
@@ -74,7 +74,7 @@ export async function insertAdminSession(document: AdminSessionDocument) {
 export async function findActiveAdminSessionByTokenHash(
   sessionTokenHash: string,
   now = new Date(),
-) {
+): Promise<{ session: AdminSessionDocument; admin: AdminDocument } | null> {
   const sessions = await getAdminSessionsCollection();
   const admins = await getAdminsCollection();
   const session = await sessions.findOne({
@@ -99,7 +99,7 @@ export async function findActiveAdminSessionByTokenHash(
   return { session, admin };
 }
 
-export async function invalidateAdminSession(sessionTokenHash: string) {
+export async function invalidateAdminSession(sessionTokenHash: string): Promise<void> {
   const collection = await getAdminSessionsCollection();
 
   await collection.updateOne(

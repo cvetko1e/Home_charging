@@ -4,6 +4,8 @@ import { NextRequest } from "next/server";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ProtectedAdminLayout from "@/app/admin/(protected)/layout";
+import AdminLoginPage from "@/app/admin/login/page";
+import type { ReactElement } from "react";
 import { GET as listAssessments } from "@/app/api/admin/assessments/route";
 import { GET as getAssessment, PATCH as updateAssessment } from "@/app/api/admin/assessments/[assessmentId]/route";
 import { hashSecret } from "@/lib/security";
@@ -103,8 +105,8 @@ beforeEach(() => {
   mocks.findSession.mockResolvedValue(session);
   mocks.findAdmin.mockResolvedValue(admin);
   mocks.list.mockResolvedValue({ assessments: [] });
-  mocks.detail.mockResolvedValue({ id: assessmentId });
-  mocks.update.mockResolvedValue({ id: assessmentId, adminNotes: "Reviewed" });
+  mocks.detail.mockResolvedValue({ success: true, data: { id: assessmentId } });
+  mocks.update.mockResolvedValue({ success: true, data: { id: assessmentId, adminNotes: "Reviewed" } });
 });
 
 afterEach(() => {
@@ -146,6 +148,21 @@ describe("protected admin layout", () => {
     expect(mocks.findSession).toHaveBeenCalledOnce();
     expectProtectedSessionLookup();
     expect(mocks.findAdmin).toHaveBeenCalledExactlyOnceWith({ _id: admin._id, active: true });
+  });
+});
+
+describe("admin login page session outcomes", () => {
+  it("renders login for a failed session result", async () => {
+    mocks.cookieValue = undefined;
+    const content = AdminLoginPage().type as () => Promise<ReactElement>;
+    await expect(content()).resolves.toMatchObject({ type: "div" });
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("preserves the dashboard redirect for a successful session result", async () => {
+    const content = AdminLoginPage().type as () => Promise<ReactElement>;
+    await expect(content()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledExactlyOnceWith("/admin/dashboard");
   });
 });
 

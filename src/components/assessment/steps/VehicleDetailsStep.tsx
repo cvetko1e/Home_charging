@@ -2,9 +2,11 @@
 
 import { useForm, useWatch } from "react-hook-form";
 import type { VehicleDetails } from "@/types/assessment";
-import { vehicleDetailsSchema } from "@/validation/assessment";
+import { createVehicleSelectionSchema } from "@/validation/catalogs";
 import { formResolver } from "@/lib/form-resolver";
-import { getVehicleModels, getVehicleYears, vehicleCatalog } from "@/lib/catalogs";
+import { getVehicleModels, getVehicleYears } from "@/lib/catalogs";
+import { useVehicleCatalog } from "@/hooks/use-catalogs";
+import { CatalogStatus } from "../CatalogStatus";
 import { SelectInput } from "@/components/ui/SelectInput";
 import { StepHeader } from "../StepHeader";
 import { StepActions } from "../StepActions";
@@ -16,6 +18,9 @@ export function VehicleDetailsStep({
   onBack,
   onSave,
 }: NavigableStepProps<VehicleDetails>) {
+  const { state: catalog, retry } = useVehicleCatalog();
+  const vehicleCatalog = catalog.status === "ready" ? catalog.data.vehicles : [];
+  const catalogReady = catalog.status === "ready";
   const {
     register,
     handleSubmit,
@@ -23,7 +28,7 @@ export function VehicleDetailsStep({
     control,
     formState: { errors },
   } = useForm<VehicleDetails>({
-    resolver: formResolver<VehicleDetails>(vehicleDetailsSchema),
+    resolver: formResolver<VehicleDetails>(createVehicleSelectionSchema(vehicleCatalog)),
     defaultValues: defaultValues ?? {
       manufacturer: "",
       model: "",
@@ -33,23 +38,29 @@ export function VehicleDetailsStep({
   });
   const manufacturer = useWatch({ control, name: "manufacturer" }) ?? "";
   const model = useWatch({ control, name: "model" }) ?? "";
-  const models = getVehicleModels(manufacturer);
-  const years = getVehicleYears(manufacturer, model);
+  const year = useWatch({ control, name: "year" });
+  const models = getVehicleModels(vehicleCatalog, manufacturer);
+  const years = getVehicleYears(vehicleCatalog, manufacturer, model);
   const manufacturerField = register("manufacturer");
   const modelField = register("model");
 
   return (
-    <form onSubmit={handleSubmit(onSave)} noValidate>
+    <form onSubmit={handleSubmit((data) => {
+      if (catalogReady) return onSave(data);
+    })} noValidate aria-busy={!catalogReady && catalog.status === "loading"}>
       <StepHeader
         title="Vehicle details"
         description="Choose the vehicle so the charger requirements can be reviewed later."
       />
+      <CatalogStatus state={catalog} label="vehicles" onRetry={retry} />
       <div className="mt-6 grid gap-5 sm:grid-cols-3">
         <SelectInput
           label="Manufacturer"
           error={errors.manufacturer?.message}
           inputProps={{
             ...manufacturerField,
+            value: manufacturer,
+            disabled: !catalogReady,
             onChange: (event) => {
               void manufacturerField.onChange(event);
               setValue("model", "");
@@ -58,6 +69,9 @@ export function VehicleDetailsStep({
           }}
         >
           <option value="">Select manufacturer</option>
+          {manufacturer && !vehicleCatalog.some((entry) => entry.manufacturer === manufacturer) ? (
+            <option value={manufacturer} disabled>{manufacturer}</option>
+          ) : null}
           {vehicleCatalog.map((entry) => (
             <option key={entry.manufacturer} value={entry.manufacturer}>
               {entry.manufacturer}
@@ -69,7 +83,8 @@ export function VehicleDetailsStep({
           error={errors.model?.message}
           inputProps={{
             ...modelField,
-            disabled: !manufacturer,
+            value: model,
+            disabled: !catalogReady || !manufacturer,
             onChange: (event) => {
               void modelField.onChange(event);
               setValue("year", undefined as unknown as number);
@@ -77,6 +92,7 @@ export function VehicleDetailsStep({
           }}
         >
           <option value="">Select model</option>
+          {model && !models.some((entry) => entry.name === model) ? <option value={model} disabled>{model}</option> : null}
           {models.map((entry) => (
             <option key={entry.name} value={entry.name}>
               {entry.name}
@@ -88,10 +104,12 @@ export function VehicleDetailsStep({
           error={errors.year?.message}
           inputProps={{
             ...register("year", { valueAsNumber: true }),
-            disabled: !model,
+            value: Number.isFinite(year) ? year : "",
+            disabled: !catalogReady || !model,
           }}
         >
           <option value="">Select year</option>
+          {Number.isFinite(year) && !years.includes(year) ? <option value={year} disabled>{year}</option> : null}
           {years.map((year) => (
             <option key={year} value={year}>
               {year}
@@ -99,7 +117,7 @@ export function VehicleDetailsStep({
           ))}
         </SelectInput>
       </div>
-      <StepActions isSaving={isSaving} onBack={onBack} />
+      <StepActions isSaving={isSaving} saveDisabled={!catalogReady} onBack={onBack} />
     </form>
   );
 }

@@ -8,6 +8,15 @@ import { ChargerInstallationStep } from "../steps/ChargerInstallationStep";
 import { HomeInformationStep } from "../steps/HomeInformationStep";
 import { EvChargerStep } from "../steps/EvChargerStep";
 
+vi.mock("@/hooks/use-catalogs", () => ({
+  useVehicleCatalog: () => ({ state: { status: "ready", data: { vehicles: [
+    { manufacturer: "Tesla", models: [{ name: "Model 3", years: [2024] }] },
+  ] } }, retry: vi.fn() }),
+  useChargerCatalog: () => ({ state: { status: "ready", data: { chargers: [
+    { brand: "Wallbox", models: ["Pulsar Plus"] },
+  ] } }, retry: vi.fn() }),
+}));
+
 type FormElement = ReactElement<FormHTMLAttributes<HTMLFormElement>>;
 type StepCase = {
   name: string;

@@ -104,20 +104,20 @@ describe("assessment validation", () => {
     }
   });
 
-  it("keeps catalog restrictions even for text within the length limit", () => {
+  it("validates catalog text structure independently of database membership", () => {
     expect(vehicleDetailsSchema.safeParse({
       ...validSections.vehicleDetails,
       manufacturer: "a".repeat(100),
-    }).success).toBe(false);
+    }).success).toBe(true);
     expect(vehicleDetailsSchema.safeParse({
       ...validSections.vehicleDetails,
       model: "a".repeat(100),
-    }).success).toBe(false);
+    }).success).toBe(true);
     expect(evChargerSchema.safeParse({
       wantsToPurchaseCharger: true,
       chargerBrand: "a".repeat(100),
       chargerModel: "a".repeat(100),
-    }).success).toBe(false);
+    }).success).toBe(true);
   });
 
   it("bounds optional charger text even when not purchasing and preserves blank handling", () => {

@@ -1,6 +1,8 @@
 import { ObjectId } from "mongodb";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assert, afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getMongoClient, getMongoDb } from "@/lib/mongodb";
+import { listChargers, listVehicles } from "@/repositories/catalogs";
+import { validateChargerChoice, validateVehicleChoice } from "@/services/catalogs";
 import {
   completeAssessmentDraft,
   updateAssessmentByAdmin,
@@ -20,7 +22,7 @@ describeIntegration("MongoDB assessment flow smoke test", () => {
   let client: Awaited<ReturnType<typeof getMongoClient>> | undefined;
 
   beforeAll(async () => {
-    if (!process.env.MONGODB_DB_NAME?.includes("test")) {
+    if (!process.env.MONGODB_URI || !process.env.MONGODB_DB_NAME?.includes("test")) {
       throw new Error("MongoDB integration tests require a test database name.");
     }
 
@@ -35,32 +37,36 @@ describeIntegration("MongoDB assessment flow smoke test", () => {
   });
 
   it("creates, saves, resumes, completes and rejects duplicate submission", async () => {
+    // Isolated catalog fixture; never upsert/seed an existing manufacturer's record.
+    const manufacturer = `Integration vehicle ${new ObjectId().toHexString()}`;
+    const db = await getMongoDb();
+    await db.collection("vehicles").insertOne({ manufacturer, models: [{ name: "Test model", years: [2024] }] });
     const draft = await createAssessmentDraft();
 
-    await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 1, {
+    expect(await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 1, {
       firstName: "Morgan",
       lastName: "Lee",
       email: "morgan@example.com",
       phoneNumber: "+1 555 123 4567",
-    });
-    await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 2, {
-      manufacturer: "Tesla",
-      model: "Model 3",
+    })).toMatchObject({ success: true });
+    expect(await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 2, {
+      manufacturer,
+      model: "Test model",
       year: 2024,
-    });
-    await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 3, {
+    })).toMatchObject({ success: true });
+    expect(await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 3, {
       panelLocation: "Garage",
       mainBreakerCapacity: 200,
       availableSlots: 4,
-    });
-    await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 4, {
+    })).toMatchObject({ success: true });
+    expect(await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 4, {
       proposedChargerLocation: "Inside garage",
       distanceFromPanel: 22,
-    });
-    await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 5, {
+    })).toMatchObject({ success: true });
+    expect(await saveAssessmentStep(draft.assessment.id, draft.resumeToken, 5, {
       address: "100 Main Street",
       majorAppliances: ["water_heater"],
-    });
+    })).toMatchObject({ success: true });
     const review = await saveAssessmentStep(
       draft.assessment.id,
       draft.resumeToken,
@@ -70,30 +76,30 @@ describeIntegration("MongoDB assessment flow smoke test", () => {
       },
     );
 
-    expect(review.currentStep).toBe(7);
+    assert(review.success);
+    expect(review.data.currentStep).toBe(7);
 
     const resumed = await getAuthorizedAssessment(
       draft.assessment.id,
       draft.resumeToken,
     );
-    expect(resumed.sections.personalDetails?.email).toBe("morgan@example.com");
+    assert(resumed.success);
+    expect(resumed.data.sections.personalDetails?.email).toBe("morgan@example.com");
 
     const completed = await completeAssessment(
       draft.assessment.id,
       draft.resumeToken,
     );
-    expect(completed.status).toBe("completed");
+    assert(completed.success);
+    expect(completed.data.status).toBe("completed");
 
     await expect(
       completeAssessment(draft.assessment.id, draft.resumeToken),
-    ).rejects.toMatchObject({
-      status: 409,
-    });
+    ).resolves.toMatchObject({ success: false, error: { code: "CONFLICT" } });
 
-    const db = await getMongoDb();
     const storedDocument = await db
       .collection("assessments")
-      .findOne({ _id: new ObjectId(completed.id) });
+      .findOne({ _id: new ObjectId(completed.data.id) });
 
     expect(storedDocument).not.toBeNull();
     expect(storedDocument?.resumeTokenHash).not.toBe(draft.resumeToken);
@@ -143,5 +149,24 @@ describeIntegration("MongoDB assessment flow smoke test", () => {
     expect(await updateAssessmentDraftStep(missingId, draftUpdates)).toBeNull();
     expect(await completeAssessmentDraft(missingId, completionUpdates)).toBeNull();
     expect(await updateAssessmentByAdmin(missingId, { adminNotes: "Missing" })).toBeNull();
+  });
+
+  it("maps live catalog documents and validates their combinations", async () => {
+    const unique = new ObjectId().toHexString();
+    const manufacturer = `Integration ${unique}`;
+    const brand = `Integration ${unique}`;
+    const db = await getMongoDb();
+    await db.collection("vehicles").insertOne({
+      manufacturer, models: [{ name: "Test model", years: [2028], internalPrice: 123 }], sortOrder: 99, adminNotes: "internal",
+    });
+    await db.collection("chargers").insertOne({ brand, models: ["Test charger"], sortOrder: 99, adminNotes: "internal" });
+    expect((await listVehicles()).find((entry) => entry.manufacturer === manufacturer)).toEqual({
+      manufacturer, models: [{ name: "Test model", years: [2028] }],
+    });
+    expect((await listChargers()).find((entry) => entry.brand === brand)).toEqual({ brand, models: ["Test charger"] });
+    expect((await validateVehicleChoice({ manufacturer, model: "Test model", year: 2028 })).success).toBe(true);
+    expect((await validateVehicleChoice({ manufacturer, model: "Test model", year: 2029 })).success).toBe(false);
+    expect((await validateChargerChoice({ wantsToPurchaseCharger: true, chargerBrand: brand, chargerModel: "Test charger" })).success).toBe(true);
+    expect((await validateChargerChoice({ wantsToPurchaseCharger: true, chargerBrand: brand, chargerModel: "Wrong" })).success).toBe(false);
   });
 });

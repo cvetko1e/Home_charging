@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jsonError } from "@/app/api/_utils";
-import { jsonFromError, readJsonBody } from "@/app/api/_utils";
+import { jsonFromServiceError, jsonFromError, readJsonBody } from "@/app/api/_utils";
 import {
   getAssessmentResumeCookieName,
   getExpiredAssessmentResumeCookieOptions,
@@ -25,8 +24,10 @@ type RouteParams = {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { assessmentId } = assessmentRouteParamsSchema.parse(await params);
+    const json = await readJsonBody(request);
+    if (!json.success) return jsonFromServiceError(json.error);
     const body = completeAssessmentRequestSchema.parse(
-      await readJsonBody(request),
+      json.data,
     );
     const resumeToken =
       readAssessmentResumeToken(
@@ -35,13 +36,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ) ?? body.resumeToken;
 
     if (!resumeToken) {
-      return jsonError("A resume session or token is required.", 401);
+      return jsonFromServiceError({
+        code: "AUTH_REQUIRED",
+        message: "A resume session or token is required.",
+      });
     }
 
     authorizationSchema.parse({ resumeToken });
 
-    const assessment = await completeAssessment(assessmentId, resumeToken);
-    const response = NextResponse.json({ assessment });
+    const result = await completeAssessment(assessmentId, resumeToken);
+    if (!result.success) return jsonFromServiceError(result.error);
+    const response = NextResponse.json({ assessment: result.data });
 
     response.cookies.set(
       getAssessmentResumeCookieName(),
