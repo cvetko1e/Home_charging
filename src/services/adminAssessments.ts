@@ -18,6 +18,17 @@ import type { SurveyStepKey } from "@/types/assessment";
 import { assessmentListQuerySchema } from "@/validation/admin";
 import type { AssessmentListQuery } from "@/validation/admin";
 import { getDraftInactivityDays } from "@/lib/env";
+import { personalDetailsSchema } from "@/validation/assessment";
+
+const adminContactFields = [
+  "firstName",
+  "lastName",
+  "email",
+  "phoneNumber",
+] as const;
+
+const incompletePersonalDetailsMessage =
+  "Contact fields cannot be updated because the personal details section is missing or incomplete.";
 
 const surveySections: Array<{
   key: SurveyStepKey;
@@ -118,9 +129,29 @@ export async function updateAdminAssessment(
 ) {
   assertValidObjectId(assessmentId);
 
+  const updatesContactFields = hasContactFieldUpdates(updates);
+
+  if (updatesContactFields) {
+    const existingDocument = await findAssessmentForAdmin(assessmentId);
+
+    if (!existingDocument) {
+      throw new AssessmentServiceError(404, "Assessment was not found.");
+    }
+
+    assertCompletePersonalDetails(existingDocument);
+  }
+
   const document = await updateAssessmentByAdmin(assessmentId, updates);
 
   if (!document) {
+    if (updatesContactFields) {
+      const existingDocument = await findAssessmentForAdmin(assessmentId);
+
+      if (existingDocument) {
+        throw new AssessmentServiceError(409, incompletePersonalDetailsMessage);
+      }
+    }
+
     throw new AssessmentServiceError(404, "Assessment was not found.");
   }
 
@@ -242,6 +273,20 @@ function toAdminAssessmentListItem(
     lastActivityAt: document.lastActivityAt.toISOString(),
     completedAt: document.completedAt?.toISOString(),
   };
+}
+
+function hasContactFieldUpdates(updates: AssessmentAdminEditableFields) {
+  return adminContactFields.some((field) => updates[field] !== undefined);
+}
+
+function assertCompletePersonalDetails(document: AssessmentDocument) {
+  const personalDetailsCheck = personalDetailsSchema.safeParse(
+    document.sections.personalDetails,
+  );
+
+  if (!personalDetailsCheck.success) {
+    throw new AssessmentServiceError(409, incompletePersonalDetailsMessage);
+  }
 }
 
 function assertValidObjectId(assessmentId: string) {

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { AdminAssessmentEditForm } from "@/components/admin/AdminAssessmentEditForm";
 import { majorApplianceOptions } from "@/lib/catalogs";
+import { formatDateTime } from "@/lib/format";
 import { getAdminAssessmentDetail } from "@/services/adminAssessments";
 import { requireAdminSession } from "@/services/adminSession";
 import type { AdminAssessmentDetail } from "@/types/admin";
+import { personalDetailsSchema } from "@/validation/assessment";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +67,9 @@ export default async function AssessmentDetailPage({
 
       <AdminAssessmentEditForm
         assessmentId={assessment.id}
+        canEditContactFields={
+          personalDetailsSchema.safeParse(personalDetails).success
+        }
         defaultValues={{
           firstName: personalDetails?.firstName ?? "",
           lastName: personalDetails?.lastName ?? "",
@@ -225,17 +230,6 @@ function formatMajorAppliances(appliances?: string[]) {
 
 function formatStatus(status: string) {
   return status === "completed" ? "Completed" : "Draft";
-}
-
-function formatDateTime(value?: string) {
-  if (!value) {
-    return "Not provided";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 
 function isEmptyValue(value: React.ReactNode) {

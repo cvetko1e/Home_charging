@@ -68,6 +68,13 @@ export type AssessmentRepositoryStats = {
   recentlySubmittedAssessments: AssessmentDocument[];
 };
 
+const adminContactFields = [
+  "firstName",
+  "lastName",
+  "email",
+  "phoneNumber",
+] as const;
+
 async function getAssessmentsCollection(): Promise<
   Collection<AssessmentDocument>
 > {
@@ -144,18 +151,13 @@ export async function updateAssessmentDraftStep(
   const collection = await getAssessmentsCollection();
   const _id = new ObjectId(assessmentId);
 
-  const result = await collection.updateOne(
+  return collection.findOneAndUpdate(
     { _id, status: "draft" },
     {
       $set: updates,
     },
+    { returnDocument: "after" },
   );
-
-  if (result.matchedCount === 0) {
-    return null;
-  }
-
-  return collection.findOne({ _id });
 }
 
 export async function completeAssessmentDraft(
@@ -173,18 +175,13 @@ export async function completeAssessmentDraft(
   const collection = await getAssessmentsCollection();
   const _id = new ObjectId(assessmentId);
 
-  const result = await collection.updateOne(
+  return collection.findOneAndUpdate(
     { _id, status: "draft" },
     {
       $set: updates,
     },
+    { returnDocument: "after" },
   );
-
-  if (result.matchedCount === 0) {
-    return null;
-  }
-
-  return collection.findOne({ _id });
 }
 
 export async function updateAssessmentByAdmin(
@@ -193,9 +190,21 @@ export async function updateAssessmentByAdmin(
 ) {
   const collection = await getAssessmentsCollection();
   const _id = new ObjectId(assessmentId);
+  const filter: Document = { _id };
   const $set: Document = {
     updatedAt: new Date(),
   };
+
+  if (hasContactFieldUpdates(updates)) {
+    filter["sections.personalDetails"] = { $exists: true, $type: "object" };
+
+    for (const field of adminContactFields) {
+      filter[`sections.personalDetails.${field}`] = {
+        $exists: true,
+        $type: "string",
+      };
+    }
+  }
 
   if (updates.firstName !== undefined) {
     $set["sections.personalDetails.firstName"] = updates.firstName;
@@ -217,18 +226,17 @@ export async function updateAssessmentByAdmin(
     $set.adminNotes = updates.adminNotes;
   }
 
-  const result = await collection.updateOne(
-    { _id },
+  return collection.findOneAndUpdate(
+    filter,
     {
       $set,
     },
+    { returnDocument: "after" },
   );
+}
 
-  if (result.matchedCount === 0) {
-    return null;
-  }
-
-  return collection.findOne({ _id });
+function hasContactFieldUpdates(updates: AssessmentAdminEditableFields) {
+  return adminContactFields.some((field) => updates[field] !== undefined);
 }
 
 export async function getAssessmentRepositoryStats(

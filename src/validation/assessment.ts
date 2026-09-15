@@ -12,14 +12,23 @@ import { surveyStepNumbers, type SurveyStepNumber } from "@/types/assessment";
 export const phonePattern = /^\+?[\d\s().-]{7,20}$/;
 const objectIdPattern = /^[a-f\d]{24}$/i;
 
-const requiredText = (fieldName: string) =>
-  z.string().trim().min(1, `${fieldName} is required.`);
+const requiredText = (fieldName: string, maxLength = 200) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${fieldName} is required.`)
+    .max(maxLength, `${fieldName} must be at most ${maxLength} characters.`);
 
-const optionalText = z.preprocess(
-  (value) =>
-    typeof value === "string" && value.trim() === "" ? undefined : value,
-  z.string().trim().optional(),
-);
+const optionalText = (fieldName: string, maxLength: number) =>
+  z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z
+      .string()
+      .trim()
+      .max(maxLength, `${fieldName} must be at most ${maxLength} characters.`)
+      .optional(),
+  );
 
 const numberInput = (fieldName: string) =>
   z.preprocess(
@@ -62,10 +71,10 @@ export const assessmentIdSchema = z
   .regex(objectIdPattern, "A valid assessment id is required.");
 
 export const personalDetailsSchema = z.object({
-  firstName: requiredText("First name"),
-  lastName: requiredText("Last name"),
-  email: requiredText("Email").email("Enter a valid email address."),
-  phoneNumber: requiredText("Phone number").regex(
+  firstName: requiredText("First name", 100),
+  lastName: requiredText("Last name", 100),
+  email: requiredText("Email", 254).email("Enter a valid email address."),
+  phoneNumber: requiredText("Phone number", 30).regex(
     phonePattern,
     "Enter a valid phone number.",
   ),
@@ -73,8 +82,8 @@ export const personalDetailsSchema = z.object({
 
 export const vehicleDetailsSchema = z
   .object({
-    manufacturer: requiredText("Manufacturer"),
-    model: requiredText("Model"),
+    manufacturer: requiredText("Manufacturer", 100),
+    model: requiredText("Model", 100),
     year: integerInput("Year"),
   })
   .superRefine((value, context) => {
@@ -121,7 +130,7 @@ export const chargerInstallationSchema = z.object({
 });
 
 export const homeInformationSchema = z.object({
-  address: requiredText("Address"),
+  address: requiredText("Address", 500),
   majorAppliances: z
     .array(z.enum(majorApplianceValues))
     .min(1, "Select at least one option."),
@@ -130,8 +139,8 @@ export const homeInformationSchema = z.object({
 export const evChargerSchema = z
   .object({
     wantsToPurchaseCharger: z.boolean(),
-    chargerBrand: optionalText,
-    chargerModel: optionalText,
+    chargerBrand: optionalText("Charger brand", 100),
+    chargerModel: optionalText("Charger model", 100),
   })
   .superRefine((value, context) => {
     if (!value.wantsToPurchaseCharger) {

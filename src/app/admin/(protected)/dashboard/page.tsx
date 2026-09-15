@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDateTime } from "@/lib/format";
 import {
   getAdminAssessmentList,
   getAdminDashboardStats,
@@ -468,15 +469,4 @@ function createPageHref(query: URLSearchParams, page: number) {
   params.set("page", String(page));
 
   return `/admin/dashboard?${params.toString()}`;
-}
-
-function formatDateTime(value?: string) {
-  if (!value) {
-    return "Not provided";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

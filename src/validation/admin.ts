@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { phonePattern } from "@/validation/assessment";
+import { personalDetailsSchema } from "@/validation/assessment";
 
 const optionalQueryText = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -11,9 +11,6 @@ const optionalDate = z.preprocess(
   z.coerce.date().optional(),
 );
 
-const editableName = (fieldName: string) =>
-  z.string().trim().min(1, `${fieldName} is required.`);
-
 export const adminLoginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address.").toLowerCase(),
   password: z.string().min(1, "Password is required."),
@@ -21,19 +18,10 @@ export const adminLoginSchema = z.object({
 
 export const adminAssessmentUpdateSchema = z
   .object({
-    firstName: editableName("First name").optional(),
-    lastName: editableName("Last name").optional(),
-    email: z
-      .string()
-      .trim()
-      .email("Enter a valid email address.")
-      .toLowerCase()
-      .optional(),
-    phoneNumber: z
-      .string()
-      .trim()
-      .regex(phonePattern, "Enter a valid phone number.")
-      .optional(),
+    firstName: personalDetailsSchema.shape.firstName.optional(),
+    lastName: personalDetailsSchema.shape.lastName.optional(),
+    email: personalDetailsSchema.shape.email.toLowerCase().optional(),
+    phoneNumber: personalDetailsSchema.shape.phoneNumber.optional(),
     adminNotes: z.string().trim().max(5000, "Admin notes are too long.").optional(),
   })
   .strict()
